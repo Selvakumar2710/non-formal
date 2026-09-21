@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinic Management System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="toast" class="toast hidden" role="status"></div>
+
+    <div id="login-page" class="login-shell">
+        <div class="login-panel">
+            <div class="login-brand">
+                <div class="logo-mark">CM</div>
+                <h1>Clinic Management System</h1>
+                <p>Enterprise staff portal for seamless clinic operations, appointment scheduling, electronic medical records, and billing.</p>
+                <div class="brand-features">
+                    <div class="brand-feature-item">
+                        <span class="feature-icon">🏥</span>
+                        <div>
+                            <strong>Patient Records</strong>
+                            <span>Fast patient registration & history</span>
+                        </div>
+                    </div>
+                    <div class="brand-feature-item">
+                        <span class="feature-icon">📅</span>
+                        <div>
+                            <strong>Smart Scheduling</strong>
+                            <span>Doctor appointments & visits</span>
+                        </div>
+                    </div>
+                    <div class="brand-feature-item">
+                        <span class="feature-icon">🛡️</span>
+                        <div>
+                            <strong>Secure Staff Portal</strong>
+                            <span>Role-based clinical operations</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="login-card-container">
+                <div class="login-tabs">
+                    <button type="button" class="tab-btn active" id="tabLoginBtn">Sign In</button>
+                    <button type="button" class="tab-btn" id="tabRegisterBtn">Register Staff</button>
+                </div>
+
+                <!-- Sign In Form -->
+                <form id="loginForm" class="login-card" novalidate>
+                    <div class="card-header">
+                        <h2>Staff Login</h2>
+                        <p class="muted">Enter your credentials to access the clinic dashboard.</p>
+                    </div>
+                    <div id="loginError" class="alert hidden"></div>
+                    <label>
+                        Username
+                        <input type="text" id="username" name="username" autocomplete="username" placeholder="e.g. admin" required>
+                    </label>
+                    <label>
+                        Password
+                        <div class="password-input-wrap">
+                            <input type="password" id="password" name="password" autocomplete="current-password" placeholder="Enter your password" required>
+                            <button type="button" class="toggle-password-btn" id="togglePasswordBtn" aria-label="Toggle password visibility">👁️</button>
+                        </div>
+                    </label>
+                    <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Sign in</button>
+                    <div class="demo-account-chip" id="fillDemoBtn" title="Click to auto-fill credentials">
+                        <span>✨ Demo Account: <strong>admin</strong> / <strong>admin</strong></span>
+                        <span class="chip-action">Click to fill</span>
+                    </div>
+                </form>
+
+                <!-- Register Form -->
+                <form id="registerForm" class="login-card hidden" novalidate>
+                    <div class="card-header">
+                        <h2>Register New Staff</h2>
+                        <p class="muted">Create an authorized account for clinic access.</p>
+                    </div>
+                    <div id="registerAlert" class="alert hidden"></div>
+                    <label>
+                        Username
+                        <input type="text" id="regUsername" name="regUsername" autocomplete="username" placeholder="Choose a username (min 2 chars)" required>
+                    </label>
+                    <label>
+                        Password
+                        <div class="password-input-wrap">
+                            <input type="password" id="regPassword" name="regPassword" autocomplete="new-password" placeholder="Create password (min 3 chars)" required>
+                            <button type="button" class="toggle-password-btn" id="toggleRegPasswordBtn" aria-label="Toggle password visibility">👁️</button>
+                        </div>
+                    </label>
+                    <label>
+                        Role
+                        <select id="regRole" name="regRole">
+                            <option value="Staff" selected>Staff</option>
+                            <option value="Admin">Admin</option>
+                            <option value="Doctor">Doctor</option>
+                        </select>
+                    </label>
+                    <button type="submit" class="btn btn-primary btn-block" id="registerBtn">Create Account</button>
+                    <p class="hint text-center">Already registered? <a href="#" id="switchToLoginLink">Sign in here</a></p>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-dashboard" class="app hidden">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo-mark small">CM</div>
+                <div>
+                    <strong>Care Clinic</strong>
+                    <span>Staff portal</span>
+                </div>
+            </div>
+            <nav>
+                <button class="nav-item active" data-target="dashboard">Dashboard</button>
+                <button class="nav-item" data-target="patients">Patients</button>
+                <button class="nav-item" data-target="doctors">Doctors</button>
+                <button class="nav-item" data-target="appointments">Appointments</button>
+                <button class="nav-item" data-target="consultations">Consultations</button>
+                <button class="nav-item" data-target="billing">Billing</button>
+                <button class="nav-item" data-target="prescriptions">Prescriptions</button>
+                <button class="nav-item" data-target="reports">Reports</button>
+            </nav>
+            <button type="button" id="logoutBtn" class="btn btn-ghost">Logout</button>
+        </aside>
+
+        <div class="main">
+            <header class="topbar">
+                <button type="button" id="menuToggleBtn" class="icon-btn" aria-label="Open menu">☰</button>
+                <div>
+                    <h2 id="pageTitle">Dashboard</h2>
+                    <p id="pageSubtitle" class="muted">Overview of clinic operations</p>
+                </div>
+                <div class="user-chip">
+                    <span id="userInitials">AD</span>
+                    <div>
+                        <strong id="userName">Admin</strong>
+                        <small id="userRole">Staff</small>
+                    </div>
+                </div>
+            </header>
+
+            <main class="content">
+                <section id="dashboard" class="module active">
+                    <div class="metrics">
+                        <article class="metric"><span>Patients</span><strong id="metricPatients">0</strong></article>
+                        <article class="metric"><span>Doctors</span><strong id="metricDoctors">0</strong></article>
+                        <article class="metric"><span>Today's appointments</span><strong id="metricAppts">0</strong></article>
+                        <article class="metric"><span>Paid billing</span><strong id="metricRevenue">₹0</strong></article>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-head">
+                            <h3>Today's schedule</h3>
+                        </div>
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Patient</th>
+                                        <th>Doctor</th>
+                                        <th>Reason</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scheduleBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="patients" class="module">
+                    <div class="toolbar">
+                        <input type="search" id="patientSearch" placeholder="Search by name or phone">
+                        <button type="button" class="btn btn-primary" data-open="patient">Add patient</button>
+                    </div>
+                    <div class="panel">
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Age</th>
+                                        <th>Gender</th>
+                                        <th>Phone</th>
+                                        <th>Address</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="patientsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="doctors" class="module">
+                    <div class="toolbar">
+                        <input type="search" id="doctorSearch" placeholder="Search by name or specialization">
+                        <button type="button" class="btn btn-primary" data-open="doctor">Add doctor</button>
+                    </div>
+                    <div class="panel">
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Specialization</th>
+                                        <th>Phone</th>
+                                        <th>Available</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="doctorsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="appointments" class="module">
+                    <div class="toolbar">
+                        <input type="search" id="appointmentSearch" placeholder="Search by patient, doctor, or status">
+                        <button type="button" class="btn btn-primary" data-open="appointment">Add appointment</button>
+                    </div>
+                    <div class="panel">
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Time</th>
+                                        <th>Patient</th>
+                                        <th>Doctor</th>
+                                        <th>Reason</th>
+                                        <th>Status</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="appointmentsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="consultations" class="module">
+                    <div class="toolbar">
+                        <span></span>
+                        <button type="button" class="btn btn-primary" data-open="consultation">Add consultation</button>
+                    </div>
+                    <div class="panel">
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Patient</th>
+                                        <th>Doctor</th>
+                                        <th>Diagnosis</th>
+                                        <th>Notes</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="consultationsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="billing" class="module">
+                    <div class="toolbar">
+                        <span></span>
+                        <button type="button" class="btn btn-primary" data-open="bill">Add bill</button>
+                    </div>
+                    <div class="panel">
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Patient</th>
+                                        <th>Description</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="billsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="prescriptions" class="module">
+                    <div class="toolbar">
+                        <span></span>
+                        <button type="button" class="btn btn-primary" data-open="prescription">Add prescription</button>
+                    </div>
+                    <div class="panel">
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Patient</th>
+                                        <th>Doctor</th>
+                                        <th>Medicine</th>
+                                        <th>Dosage</th>
+                                        <th>Duration</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="prescriptionsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="reports" class="module">
+                    <div class="panel">
+                        <div class="panel-head">
+                            <h3>Date range</h3>
+                        </div>
+                        <form id="reportForm" class="report-filters">
+                            <label>From <input type="date" id="reportFrom" required></label>
+                            <label>To <input type="date" id="reportTo" required></label>
+                            <button type="submit" class="btn btn-primary">Generate reports</button>
+                        </form>
+                    </div>
+                    <div class="metrics">
+                        <article class="metric"><span>Appointments</span><strong id="reportApptTotal">0</strong></article>
+                        <article class="metric"><span>Scheduled</span><strong id="reportScheduled">0</strong></article>
+                        <article class="metric"><span>Paid total</span><strong id="reportPaid">₹0</strong></article>
+                        <article class="metric"><span>Unpaid total</span><strong id="reportUnpaid">₹0</strong></article>
+                    </div>
+                    <div class="split">
+                        <div class="panel">
+                            <div class="panel-head"><h3>Appointment report</h3></div>
+                            <div class="table-wrap">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Patient</th>
+                                            <th>Doctor</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reportApptsBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="panel">
+                            <div class="panel-head"><h3>Billing report</h3></div>
+                            <div class="table-wrap">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Patient</th>
+                                            <th>Amount</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reportBillsBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+        <div class="modal-card">
+            <div class="panel-head">
+                <h3 id="modalTitle">Form</h3>
+                <button type="button" id="modalClose" class="icon-btn" aria-label="Close">×</button>
+            </div>
+            <form id="modalForm" class="form-grid"></form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
