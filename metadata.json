@@ -1,0 +1,8 @@
+{
+  "name": "Clinic Management System",
+  "description": "Enterprise staff portal for seamless clinic operations, appointment scheduling, electronic medical records, and billing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

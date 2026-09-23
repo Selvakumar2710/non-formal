@@ -1,8 +1,4 @@
-const API = (() => {
-    if (window.location.protocol === "file:") return "http://127.0.0.1:8000";
-    if (window.location.port && window.location.port !== "8000") return "http://127.0.0.1:8000";
-    return "";
-})();
+const API = "";
 const TOKEN_KEY = "clinic_token";
 const USER_KEY = "clinic_user";
 
@@ -15,6 +11,7 @@ const titles = {
     billing: ["Billing", "Create and track patient bills"],
     prescriptions: ["Prescriptions", "Record prescribed medicines"],
     reports: ["Reports", "Appointment and billing summaries by date"],
+    "ai-assistant": ["AI Assistant", "Clinical operations copilot and natural language insights"],
 };
 
 let patients = [];
@@ -23,7 +20,7 @@ let appointments = [];
 let editing = { type: null, id: null };
 
 function token() {
-    return sessionStorage.getItem(TOKEN_KEY);
+    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
 }
 
 function showToast(message) {
@@ -58,6 +55,157 @@ function emptyRow(cols, text) {
     return `<tr><td colspan="${cols}" class="empty">${text}</td></tr>`;
 }
 
+// --- Progressive Web App (PWA) Management ---
+let deferredPrompt = null;
+
+function isAppStandalone() {
+    return window.matchMedia('(display-mode: standalone)').matches ||
+           window.matchMedia('(display-mode: window-controls-overlay)').matches ||
+           (window.navigator.standalone === true);
+}
+
+function isIOSDevice() {
+    const ua = window.navigator.userAgent.toLowerCase();
+    return /iphone|ipad|ipod/.test(ua);
+}
+
+function updateInstallButtonsVisibility() {
+    const topbarBtn = document.getElementById("topbarInstallBtn");
+    const sidebarBtn = document.getElementById("sidebarInstallBtn");
+    const loginBanner = document.getElementById("loginPwaBanner");
+
+    // If running in standalone mode (already launched as installed app), hide all install prompts
+    if (isAppStandalone()) {
+        if (topbarBtn) topbarBtn.classList.add("hidden");
+        if (sidebarBtn) sidebarBtn.classList.add("hidden");
+        if (loginBanner) loginBanner.classList.add("hidden");
+        return;
+    }
+
+    const show = Boolean(deferredPrompt) || isIOSDevice();
+    if (topbarBtn) topbarBtn.classList.toggle("hidden", !show);
+    if (sidebarBtn) sidebarBtn.classList.toggle("hidden", !show);
+    if (loginBanner) loginBanner.classList.toggle("hidden", !show);
+}
+
+function showIosInstallModal(show) {
+    const modal = document.getElementById("iosInstallModal");
+    if (modal) {
+        modal.classList.toggle("hidden", !show);
+    }
+}
+
+async function triggerPwaInstall() {
+    if (isIOSDevice() && !deferredPrompt) {
+        showIosInstallModal(true);
+        return;
+    }
+    if (!deferredPrompt) {
+        showToast("Care Clinic is ready to install via your browser menu.");
+        return;
+    }
+    try {
+        await deferredPrompt.prompt();
+        const choice = await deferredPrompt.userChoice;
+        if (choice.outcome === 'accepted') {
+            showToast("Installing Care Clinic on your device...");
+            deferredPrompt = null;
+            updateInstallButtonsVisibility();
+        }
+    } catch (err) {
+        console.warn("PWA install error:", err);
+    }
+}
+
+function setupPwa() {
+    // 1. Register Service Worker with root scope
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                .then((registration) => {
+                    console.log('[PWA] Service Worker registered. Scope:', registration.scope);
+                    
+                    // Check for updates
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        if (newWorker) {
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    console.log('[PWA] New version ready.');
+                                }
+                            });
+                        }
+                    });
+                })
+                .catch((err) => {
+                    console.warn('[PWA] Service Worker registration failed:', err);
+                });
+        });
+    }
+
+    // 2. Capture beforeinstallprompt event for Android, Chromium, Desktop Chrome / Edge
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        updateInstallButtonsVisibility();
+    });
+
+    // 3. Handle appinstalled event
+    window.addEventListener('appinstalled', () => {
+        deferredPrompt = null;
+        updateInstallButtonsVisibility();
+        showToast("Care Clinic installed successfully!");
+    });
+
+    // 4. Bind install buttons
+    const topbarBtn = document.getElementById("topbarInstallBtn");
+    const sidebarBtn = document.getElementById("sidebarInstallBtn");
+    const loginInstallBtn = document.getElementById("loginInstallBtn");
+
+    if (topbarBtn) topbarBtn.addEventListener("click", triggerPwaInstall);
+    if (sidebarBtn) sidebarBtn.addEventListener("click", triggerPwaInstall);
+    if (loginInstallBtn) loginInstallBtn.addEventListener("click", triggerPwaInstall);
+
+    // 5. iOS modal close handlers
+    const iosModalClose = document.getElementById("iosModalClose");
+    const iosModalDoneBtn = document.getElementById("iosModalDoneBtn");
+    const iosModal = document.getElementById("iosInstallModal");
+
+    if (iosModalClose) iosModalClose.addEventListener("click", () => showIosInstallModal(false));
+    if (iosModalDoneBtn) iosModalDoneBtn.addEventListener("click", () => showIosInstallModal(false));
+    if (iosModal) {
+        iosModal.addEventListener("click", (e) => {
+            if (e.target === iosModal) showIosInstallModal(false);
+        });
+    }
+
+    // Initial check for installability or standalone mode
+    updateInstallButtonsVisibility();
+
+    // 6. Network connectivity indicator
+    const offlineIndicator = document.getElementById("offlineIndicator");
+    function updateNetworkStatus() {
+        if (offlineIndicator) {
+            offlineIndicator.classList.toggle("hidden", navigator.onLine);
+        }
+    }
+
+    window.addEventListener("online", () => {
+        updateNetworkStatus();
+        showToast("Connection restored. Back online!");
+        if (token()) {
+            loadSummary();
+        }
+    });
+
+    window.addEventListener("offline", () => {
+        updateNetworkStatus();
+        showToast("You are offline. Running in offline cache mode.");
+    });
+
+    updateNetworkStatus();
+}
+
 async function api(path, options = {}) {
     const headers = { ...(options.headers || {}) };
     if (options.body && !headers["Content-Type"]) {
@@ -71,7 +219,10 @@ async function api(path, options = {}) {
         res = await fetch(`${API}${path}`, { ...options, headers });
     } catch (networkErr) {
         const target = API || window.location.origin;
-        throw new Error(`Cannot connect to backend server (${target}). Please ensure the FastAPI backend is running (run start_backend.bat or python main.py).`);
+        if (!navigator.onLine) {
+            throw new Error("You are currently offline. Please reconnect to perform this action.");
+        }
+        throw new Error(`Cannot connect to clinic server (${target}). Please ensure the server is online.`);
     }
     let data = null;
     try {
@@ -80,12 +231,17 @@ async function api(path, options = {}) {
         data = null;
     }
     if (res.status === 401) {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
         sessionStorage.removeItem(TOKEN_KEY);
         sessionStorage.removeItem(USER_KEY);
         showApp(false);
         throw new Error((data && (data.detail || data.message)) || "Please log in");
     }
     if (!res.ok) {
+        if (data && data.offline) {
+            throw new Error(data.detail || "You are currently offline.");
+        }
         const detail = data && data.detail;
         const message = Array.isArray(detail)
             ? detail.map((item) => item.msg || JSON.stringify(item)).join("; ")
@@ -115,10 +271,32 @@ function showApp(loggedIn) {
 }
 
 function setUserChip() {
-    const user = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+    const raw = localStorage.getItem(USER_KEY) || sessionStorage.getItem(USER_KEY) || "{}";
+    let user = {};
+    try {
+        user = JSON.parse(raw);
+    } catch {
+        user = {};
+    }
     document.getElementById("userName").textContent = user.username || "Staff";
     document.getElementById("userRole").textContent = user.role || "Staff";
     document.getElementById("userInitials").textContent = (user.username || "AD").slice(0, 2).toUpperCase();
+}
+
+function openMobileSidebar() {
+    const sidebar = document.getElementById("sidebar");
+    const backdrop = document.getElementById("sidebarBackdrop");
+    if (sidebar) sidebar.classList.add("open");
+    if (backdrop) backdrop.classList.remove("hidden");
+    document.body.classList.add("sidebar-open");
+}
+
+function closeMobileSidebar() {
+    const sidebar = document.getElementById("sidebar");
+    const backdrop = document.getElementById("sidebarBackdrop");
+    if (sidebar) sidebar.classList.remove("open");
+    if (backdrop) backdrop.classList.add("hidden");
+    document.body.classList.remove("sidebar-open");
 }
 
 function switchTab(id) {
@@ -131,7 +309,7 @@ function switchTab(id) {
     const [title, subtitle] = titles[id] || ["Clinic", ""];
     document.getElementById("pageTitle").textContent = title;
     document.getElementById("pageSubtitle").textContent = subtitle;
-    document.getElementById("sidebar").classList.remove("open");
+    closeMobileSidebar();
     loadModule(id);
 }
 
@@ -145,6 +323,7 @@ async function loadModule(id) {
         if (id === "billing") await loadBills();
         if (id === "prescriptions") await loadPrescriptions();
         if (id === "reports") initReports();
+        if (id === "ai-assistant") await loadAiAssistant();
     } catch (err) {
         showToast(err.message);
     }
@@ -362,6 +541,173 @@ async function loadReports() {
               )
               .join("")
         : emptyRow(4, "No bills in this range.");
+}
+
+// --- AI Assistant Logic ---
+function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function formatAiMarkdown(raw) {
+    if (!raw) return "";
+    const lines = raw.split("\n");
+    let html = "";
+    let inList = false;
+
+    for (let line of lines) {
+        let trimmed = line.trim();
+        if (!trimmed) {
+            if (inList) {
+                html += "</ul>";
+                inList = false;
+            }
+            continue;
+        }
+
+        // Headers: ### Header
+        if (trimmed.startsWith("### ")) {
+            if (inList) {
+                html += "</ul>";
+                inList = false;
+            }
+            html += `<h4>${escapeHtml(trimmed.slice(4))}</h4>`;
+            continue;
+        }
+        if (trimmed.startsWith("## ")) {
+            if (inList) {
+                html += "</ul>";
+                inList = false;
+            }
+            html += `<h3>${escapeHtml(trimmed.slice(3))}</h3>`;
+            continue;
+        }
+
+        // Bullet list item: • or - or *
+        if (/^([•\-\*]|\d+\.)\s+/.test(trimmed)) {
+            if (!inList) {
+                html += "<ul>";
+                inList = true;
+            }
+            const content = trimmed.replace(/^([•\-\*]|\d+\.)\s+/, "");
+            html += `<li>${inlineMarkdown(content)}</li>`;
+            continue;
+        }
+
+        if (inList) {
+            html += "</ul>";
+            inList = false;
+        }
+
+        html += `<p>${inlineMarkdown(trimmed)}</p>`;
+    }
+
+    if (inList) {
+        html += "</ul>";
+    }
+    return html;
+}
+
+function inlineMarkdown(text) {
+    let safe = escapeHtml(text);
+    // Bold: **text**
+    safe = safe.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+    // Italic: *text* or _text_
+    safe = safe.replace(/\*(.*?)\*/g, "<em>$1</em>");
+    // Inline code: `text`
+    safe = safe.replace(/`(.*?)`/g, "<code>$1</code>");
+    return safe;
+}
+
+async function loadAiAssistant() {
+    try {
+        const data = await api("/api/ai/insights");
+        if (data && data.summary) {
+            const pEl = document.getElementById("aiStatPatients");
+            const dEl = document.getElementById("aiStatDoctors");
+            const uEl = document.getElementById("aiStatUnpaid");
+            if (pEl) pEl.textContent = data.summary.totalPatients;
+            if (dEl) dEl.textContent = `${data.summary.availableDoctorsCount} / ${data.summary.totalDoctors} Avail`;
+            if (uEl) uEl.textContent = data.summary.totalUnpaidRevenue;
+        }
+    } catch (err) {
+        console.warn("AI insights load failed:", err.message);
+    }
+}
+
+async function submitAiQuery(queryText) {
+    const clean = (queryText || "").trim();
+    if (!clean) return;
+
+    const stream = document.getElementById("aiChatStream");
+    const loading = document.getElementById("aiChatLoading");
+    const errorAlert = document.getElementById("aiChatError");
+    const input = document.getElementById("aiQueryInput");
+    const sendBtn = document.getElementById("aiSendBtn");
+
+    // Hide error
+    if (errorAlert) errorAlert.classList.add("hidden");
+
+    // Append User message
+    const userMsg = document.createElement("div");
+    userMsg.className = "ai-msg ai-msg-user";
+    userMsg.innerHTML = `
+        <div class="ai-msg-avatar">👤</div>
+        <div class="ai-msg-body">
+            <p>${escapeHtml(clean)}</p>
+        </div>
+    `;
+    stream.appendChild(userMsg);
+    stream.scrollTop = stream.scrollHeight;
+
+    // Reset input
+    if (input) {
+        input.value = "";
+        input.style.height = "auto";
+    }
+
+    // Show Loading
+    if (loading) loading.classList.remove("hidden");
+    if (sendBtn) {
+        sendBtn.disabled = true;
+    }
+
+    try {
+        const response = await api("/api/ai/query", {
+            method: "POST",
+            body: JSON.stringify({ query: clean }),
+        });
+
+        const timeStr = new Date(response.timestamp || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const sourceLabel = response.source === "gemini" ? "Gemini 3.8 Flash" : "Clinic AI Intelligence";
+
+        const botMsg = document.createElement("div");
+        botMsg.className = "ai-msg ai-msg-bot";
+        botMsg.innerHTML = `
+            <div class="ai-msg-avatar">🤖</div>
+            <div class="ai-msg-body">
+                ${formatAiMarkdown(response.answer)}
+                <div class="ai-msg-meta">
+                    <span>✨ ${escapeHtml(sourceLabel)}</span>
+                    <span>${timeStr}</span>
+                </div>
+            </div>
+        `;
+        stream.appendChild(botMsg);
+        stream.scrollTop = stream.scrollHeight;
+    } catch (err) {
+        if (errorAlert) {
+            document.getElementById("aiErrorMessage").textContent = `Error: ${err.message}`;
+            errorAlert.classList.remove("hidden");
+        } else {
+            showToast(err.message);
+        }
+    } finally {
+        if (loading) loading.classList.add("hidden");
+        if (sendBtn) sendBtn.disabled = false;
+        if (input) input.focus();
+    }
 }
 
 function options(list, valueKey, labelKey, selected) {
@@ -656,11 +1002,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 method: "POST",
                 body: JSON.stringify({ username, password }),
             });
+            localStorage.setItem(TOKEN_KEY, result.token);
+            localStorage.setItem(USER_KEY, JSON.stringify({ username: result.username, role: result.role }));
             sessionStorage.setItem(TOKEN_KEY, result.token);
             sessionStorage.setItem(USER_KEY, JSON.stringify({ username: result.username, role: result.role }));
             setUserChip();
             showApp(true);
             switchTab("dashboard");
+            updateInstallButtonsVisibility();
             showToast(`Welcome back, ${result.username}!`);
         } catch (err) {
             error.textContent = err.message;
@@ -698,11 +1047,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     method: "POST",
                     body: JSON.stringify({ username, password, role }),
                 });
+                localStorage.setItem(TOKEN_KEY, result.token);
+                localStorage.setItem(USER_KEY, JSON.stringify({ username: result.username, role: result.role }));
                 sessionStorage.setItem(TOKEN_KEY, result.token);
                 sessionStorage.setItem(USER_KEY, JSON.stringify({ username: result.username, role: result.role }));
                 setUserChip();
                 showApp(true);
                 switchTab("dashboard");
+                updateInstallButtonsVisibility();
                 showToast(`Welcome, ${result.username}! Account created successfully.`);
             } catch (err) {
                 alertEl.textContent = err.message;
@@ -720,18 +1072,47 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch {
             /* still clear local session */
         }
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
         sessionStorage.removeItem(TOKEN_KEY);
         sessionStorage.removeItem(USER_KEY);
         document.getElementById("loginForm").reset();
         showApp(false);
+        updateInstallButtonsVisibility();
     });
 
     document.querySelectorAll(".nav-item").forEach((btn) => {
         btn.addEventListener("click", () => switchTab(btn.dataset.target));
     });
 
-    document.getElementById("menuToggleBtn").addEventListener("click", () => {
-        document.getElementById("sidebar").classList.toggle("open");
+    const menuToggle = document.getElementById("menuToggleBtn");
+    if (menuToggle) {
+        menuToggle.addEventListener("click", () => {
+            const sidebar = document.getElementById("sidebar");
+            if (sidebar && sidebar.classList.contains("open")) {
+                closeMobileSidebar();
+            } else {
+                openMobileSidebar();
+            }
+        });
+    }
+
+    const sidebarClose = document.getElementById("sidebarCloseBtn");
+    if (sidebarClose) {
+        sidebarClose.addEventListener("click", closeMobileSidebar);
+    }
+
+    const sidebarBackdrop = document.getElementById("sidebarBackdrop");
+    if (sidebarBackdrop) {
+        sidebarBackdrop.addEventListener("click", closeMobileSidebar);
+    }
+
+    // Dismiss overlays on Escape key
+    window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+            closeMobileSidebar();
+            closeModal();
+        }
     });
 
     document.querySelectorAll("[data-open]").forEach((btn) => {
@@ -806,5 +1187,97 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    // --- AI Assistant Event Bindings ---
+    const aiChatForm = document.getElementById("aiChatForm");
+    const aiQueryInput = document.getElementById("aiQueryInput");
+    if (aiChatForm && aiQueryInput) {
+        aiChatForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            submitAiQuery(aiQueryInput.value);
+        });
+
+        // Auto-expand textarea and submit on Enter without Shift
+        aiQueryInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submitAiQuery(aiQueryInput.value);
+            }
+        });
+        aiQueryInput.addEventListener("input", () => {
+            aiQueryInput.style.height = "auto";
+            aiQueryInput.style.height = `${Math.min(aiQueryInput.scrollHeight, 120)}px`;
+        });
+    }
+
+    // Quick prompt chips
+    document.querySelectorAll(".ai-chip-btn").forEach((chip) => {
+        chip.addEventListener("click", () => {
+            const prompt = chip.dataset.aiPrompt;
+            if (prompt) {
+                submitAiQuery(prompt);
+            }
+        });
+    });
+
+    // Clear chat history
+    const aiClearBtn = document.getElementById("aiClearChatBtn");
+    if (aiClearBtn) {
+        aiClearBtn.addEventListener("click", () => {
+            const stream = document.getElementById("aiChatStream");
+            if (stream) {
+                stream.innerHTML = `
+                    <div class="ai-msg ai-msg-bot">
+                        <div class="ai-msg-avatar">🤖</div>
+                        <div class="ai-msg-body">
+                            <p>Conversation history cleared. How can I assist you with clinic operations today?</p>
+                        </div>
+                    </div>
+                `;
+            }
+            showToast("Conversation cleared");
+        });
+    }
+
+    // Retry button on error
+    const aiRetryBtn = document.getElementById("aiRetryBtn");
+    if (aiRetryBtn) {
+        aiRetryBtn.addEventListener("click", () => {
+            const errAlert = document.getElementById("aiChatError");
+            if (errAlert) errAlert.classList.add("hidden");
+            const lastUserMsg = document.querySelector(".ai-msg-user:last-of-type .ai-msg-body p");
+            if (lastUserMsg && lastUserMsg.textContent) {
+                submitAiQuery(lastUserMsg.textContent);
+            }
+        });
+    }
+
+    // Dashboard AI Quick Buttons
+    const dashOpenAiBtn = document.getElementById("dashOpenAiBtn");
+    if (dashOpenAiBtn) {
+        dashOpenAiBtn.addEventListener("click", () => {
+            switchTab("ai-assistant");
+        });
+    }
+
+    const dashQuickSummaryBtn = document.getElementById("dashQuickSummaryBtn");
+    if (dashQuickSummaryBtn) {
+        dashQuickSummaryBtn.addEventListener("click", () => {
+            switchTab("ai-assistant");
+            submitAiQuery("Provide a full clinic operations summary for today with patient load, doctor availability, and pending actions.");
+        });
+    }
+
     restoreSession();
+    setupPwa();
+
+    // Handle deep-link query parameters from PWA shortcuts (e.g. ?tab=appointments)
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetTab = urlParams.get('tab') || urlParams.get('module');
+        if (targetTab && titles[targetTab] && token()) {
+            switchTab(targetTab);
+        }
+    } catch {
+        /* ignore invalid query */
+    }
 });

@@ -1,0 +1,23 @@
+{
+  "name": "clinic-management-system",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "test": "node test_system.js",
+    "lint": "node -c server.js db.js ai_service.js test_system.js frontend/script.js frontend/sw.js",
+    "build": "node -e \"console.log('Build completed')\""
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@google/genai": "^2.24.0",
+    "@supabase/supabase-js": "^2.116.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "pg": "^8.23.0"
+  }
+}

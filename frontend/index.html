@@ -2,8 +2,29 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Clinic Management System</title>
+    <meta name="description" content="Enterprise staff portal for seamless clinic operations, appointment scheduling, electronic medical records, and billing.">
+    <meta property="og:title" content="Clinic Management System">
+    <meta property="og:description" content="Enterprise staff portal for seamless clinic operations, appointment scheduling, electronic medical records, and billing.">
+
+    <!-- PWA & Mobile Web App Capabilities -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#0f3d45">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="CareClinic">
+    <meta name="application-name" content="CareClinic">
+    <meta name="format-detection" content="telephone=no">
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/icon.svg">
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512x512.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="shortcut icon" href="/favicon.ico">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
@@ -11,6 +32,10 @@
 </head>
 <body>
     <div id="toast" class="toast hidden" role="status"></div>
+    <div id="offlineIndicator" class="offline-indicator hidden" role="status" aria-live="polite">
+        <span class="offline-dot"></span>
+        <span>Offline Mode — Cached data is in use</span>
+    </div>
 
     <div id="login-page" class="login-shell">
         <div class="login-panel">
@@ -44,6 +69,15 @@
             </div>
 
             <div class="login-card-container">
+                <div id="loginPwaBanner" class="login-pwa-chip hidden" aria-label="Install Care Clinic application">
+                    <span class="chip-icon">📲</span>
+                    <div class="chip-text">
+                        <strong>Install Care Clinic</strong>
+                        <span>Fast 1-tap launcher & offline access</span>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-pwa-install" id="loginInstallBtn">Install App</button>
+                </div>
+
                 <div class="login-tabs">
                     <button type="button" class="tab-btn active" id="tabLoginBtn">Sign In</button>
                     <button type="button" class="tab-btn" id="tabRegisterBtn">Register Staff</button>
@@ -108,13 +142,17 @@
     </div>
 
     <div id="app-dashboard" class="app hidden">
-        <aside class="sidebar" id="sidebar">
+        <div id="sidebarBackdrop" class="sidebar-backdrop hidden" aria-hidden="true"></div>
+        <aside class="sidebar" id="sidebar" aria-label="Main Navigation">
             <div class="sidebar-brand">
-                <div class="logo-mark small">CM</div>
-                <div>
-                    <strong>Care Clinic</strong>
-                    <span>Staff portal</span>
+                <div class="brand-info">
+                    <div class="logo-mark small">CM</div>
+                    <div>
+                        <strong>Care Clinic</strong>
+                        <span>Staff portal</span>
+                    </div>
                 </div>
+                <button type="button" id="sidebarCloseBtn" class="sidebar-close-btn" aria-label="Close navigation menu">✕</button>
             </div>
             <nav>
                 <button class="nav-item active" data-target="dashboard">Dashboard</button>
@@ -125,7 +163,12 @@
                 <button class="nav-item" data-target="billing">Billing</button>
                 <button class="nav-item" data-target="prescriptions">Prescriptions</button>
                 <button class="nav-item" data-target="reports">Reports</button>
+                <button class="nav-item nav-ai-highlight" data-target="ai-assistant">✨ AI Assistant</button>
             </nav>
+            <button type="button" id="sidebarInstallBtn" class="sidebar-install-btn hidden" aria-label="Install Care Clinic on Device">
+                <span class="install-btn-icon">📲</span>
+                <span class="install-btn-label">Install App</span>
+            </button>
             <button type="button" id="logoutBtn" class="btn btn-ghost">Logout</button>
         </aside>
 
@@ -136,11 +179,17 @@
                     <h2 id="pageTitle">Dashboard</h2>
                     <p id="pageSubtitle" class="muted">Overview of clinic operations</p>
                 </div>
-                <div class="user-chip">
-                    <span id="userInitials">AD</span>
-                    <div>
-                        <strong id="userName">Admin</strong>
-                        <small id="userRole">Staff</small>
+                <div class="topbar-actions">
+                    <button type="button" id="topbarInstallBtn" class="topbar-install-btn hidden" aria-label="Install Care Clinic App">
+                        <span class="install-btn-icon">📲</span>
+                        <span class="install-btn-text">Install App</span>
+                    </button>
+                    <div class="user-chip">
+                        <span id="userInitials">AD</span>
+                        <div>
+                            <strong id="userName">Admin</strong>
+                            <small id="userRole">Staff</small>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -152,6 +201,17 @@
                         <article class="metric"><span>Doctors</span><strong id="metricDoctors">0</strong></article>
                         <article class="metric"><span>Today's appointments</span><strong id="metricAppts">0</strong></article>
                         <article class="metric"><span>Paid billing</span><strong id="metricRevenue">₹0</strong></article>
+                    </div>
+                    <div class="ai-dashboard-banner">
+                        <div class="ai-banner-content">
+                            <div class="ai-badge-chip">✨ AI Clinical Intelligence</div>
+                            <h4>Care Clinic AI Operations Copilot</h4>
+                            <p class="muted">Instant natural language insights on patient load, physician availability, billing receivables, and clinical trends powered by Gemini.</p>
+                        </div>
+                        <div class="ai-banner-actions">
+                            <button type="button" class="btn btn-primary btn-sm" id="dashOpenAiBtn">Open AI Copilot ➔</button>
+                            <button type="button" class="btn btn-sm btn-outline" id="dashQuickSummaryBtn">⚡ Instant Summary</button>
+                        </div>
                     </div>
                     <div class="panel">
                         <div class="panel-head">
@@ -371,6 +431,71 @@
                         </div>
                     </div>
                 </section>
+
+                <section id="ai-assistant" class="module">
+                    <div class="ai-hero-card">
+                        <div class="ai-hero-info">
+                            <div class="ai-badge-chip">✨ Powered by Gemini 3.8 Flash</div>
+                            <h2>AI Clinical & Operations Copilot</h2>
+                            <p class="muted">Natural language search, operational analysis, revenue reporting, and grounded decision support using live clinic records.</p>
+                        </div>
+                        <div class="ai-hero-stats" id="aiHeroStats">
+                            <div class="ai-stat-pill"><span>Patients:</span> <strong id="aiStatPatients">...</strong></div>
+                            <div class="ai-stat-pill"><span>Doctors:</span> <strong id="aiStatDoctors">...</strong></div>
+                            <div class="ai-stat-pill"><span>Unpaid Bills:</span> <strong id="aiStatUnpaid">...</strong></div>
+                        </div>
+                    </div>
+
+                    <div class="ai-quick-prompts">
+                        <span class="ai-prompts-label">Quick Prompts:</span>
+                        <div class="ai-chips-wrap">
+                            <button type="button" class="ai-chip-btn" data-ai-prompt="Provide a full clinic operations summary for today with patient load, doctor availability, and pending actions.">📊 Daily Clinic Summary</button>
+                            <button type="button" class="ai-chip-btn" data-ai-prompt="Analyze outstanding bills, unpaid revenue, and list patients who have pending payments.">💳 Unpaid Bills & Revenue</button>
+                            <button type="button" class="ai-chip-btn" data-ai-prompt="Which doctors are currently available and what is the schedule for each doctor?">👨‍⚕️ Doctor Workload & Status</button>
+                            <button type="button" class="ai-chip-btn" data-ai-prompt="Summarize recent diagnoses, consultations, and prescribed medications.">💊 Diagnoses & Prescriptions</button>
+                            <button type="button" class="ai-chip-btn" data-ai-prompt="Give me actionable recommendations to optimize clinic scheduling and revenue collection.">💡 Operational Recommendations</button>
+                        </div>
+                    </div>
+
+                    <div class="panel ai-chat-panel">
+                        <div class="panel-head ai-chat-head">
+                            <div class="ai-chat-title-wrap">
+                                <h3>Clinical Intelligence Chat</h3>
+                                <span class="ai-status-indicator"><span class="dot online"></span> Live Clinic Context Connected</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline" id="aiClearChatBtn" title="Reset conversation">Clear History</button>
+                        </div>
+
+                        <div class="ai-chat-stream" id="aiChatStream">
+                            <!-- Messages appended here dynamically -->
+                            <div class="ai-msg ai-msg-bot">
+                                <div class="ai-msg-avatar">🤖</div>
+                                <div class="ai-msg-body">
+                                    <p>Hello! I am your <strong>Care Clinic AI Copilot</strong>. I have real-time access to our patient registries, doctor schedules, appointments, consultations, billing records, and prescriptions.</p>
+                                    <p>How can I assist you today? You can choose any quick prompt above or ask a custom question below.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="aiChatLoading" class="ai-loading-indicator hidden">
+                            <div class="ai-spinner"></div>
+                            <span>Analyzing live clinic database & generating response with Gemini...</span>
+                        </div>
+
+                        <div id="aiChatError" class="alert hidden">
+                            <span id="aiErrorMessage"></span>
+                            <button type="button" class="btn btn-sm btn-ghost" id="aiRetryBtn">Retry</button>
+                        </div>
+
+                        <form id="aiChatForm" class="ai-chat-input-bar">
+                            <textarea id="aiQueryInput" rows="1" placeholder="Ask about patients, doctors, schedules, bills, diagnoses, or clinic operations..." required></textarea>
+                            <button type="submit" class="btn btn-primary" id="aiSendBtn">
+                                <span>Send</span>
+                                <span class="ai-btn-icon">➔</span>
+                            </button>
+                        </form>
+                    </div>
+                </section>
             </main>
         </div>
     </div>
@@ -382,6 +507,48 @@
                 <button type="button" id="modalClose" class="icon-btn" aria-label="Close">×</button>
             </div>
             <form id="modalForm" class="form-grid"></form>
+        </div>
+    </div>
+
+    <!-- iOS Safari Guided Installation Modal -->
+    <div id="iosInstallModal" class="modal hidden" role="dialog" aria-modal="true">
+        <div class="modal-card ios-guide-card">
+            <div class="panel-head">
+                <div class="ios-guide-title">
+                    <span class="ios-apple-icon"></span>
+                    <h3>Install Care Clinic on iOS</h3>
+                </div>
+                <button type="button" id="iosModalClose" class="icon-btn" aria-label="Close iOS guide">×</button>
+            </div>
+            <div class="ios-guide-body">
+                <p class="ios-guide-desc">Install Care Clinic on your iPhone or iPad for fast full-screen access and offline support:</p>
+                <ol class="ios-steps-list">
+                    <li>
+                        <span class="step-num">1</span>
+                        <div>
+                            <strong>Tap Share</strong>
+                            <p>In Safari, tap the <strong class="ios-icon-badge">Share ⎋</strong> button at the bottom (or top on iPad).</p>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="step-num">2</span>
+                        <div>
+                            <strong>Select "Add to Home Screen"</strong>
+                            <p>Scroll down the share sheet and tap <strong class="ios-icon-badge">Add to Home Screen ⊞</strong>.</p>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="step-num">3</span>
+                        <div>
+                            <strong>Confirm & Launch</strong>
+                            <p>Tap <strong>Add</strong> in the top-right corner. The Care Clinic icon will appear on your home screen!</p>
+                        </div>
+                    </li>
+                </ol>
+                <div class="form-actions">
+                    <button type="button" id="iosModalDoneBtn" class="btn btn-primary btn-block">Got It</button>
+                </div>
+            </div>
         </div>
     </div>
 
